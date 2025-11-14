@@ -79,6 +79,57 @@ interface SourceSpec {
   }
 }
 
+interface SinkSpec {
+  apiVersion: string
+  kind: string
+  metadata: {
+    name: string
+    namespace: string
+  }
+  spec: {
+    image: string
+    className: string
+    tenant?: string
+    clusterName?: string
+    replicas?: number
+    showPreciseParallelism?: boolean
+    minReplicas?: number
+    maxReplicas?: number
+    input?: {
+      topics: string[]
+      typeClassName?: string
+    }
+    sinkConfig?: Record<string, any>
+    timeout?: number
+    negativeAckRedeliveryDelayMs?: number
+    autoAck?: boolean
+    maxMessageRetry?: number
+    processingGuarantee?: string
+    retainOrdering?: boolean
+    retainKeyOrdering?: boolean
+    deadLetterTopic?: string
+    subscriptionName?: string
+    cleanupSubscription?: boolean
+    subscriptionPosition?: string
+    logTopic?: string
+    logTopicAgent?: string
+    filebeatImage?: string
+    pulsar?: {
+      pulsarConfig: string
+    }
+    resources?: {
+      requests?: {
+        cpu?: string
+        memory?: string
+      }
+      limits?: {
+        cpu?: string
+        memory?: string
+      }
+    }
+  }
+}
+
 interface FunctionMeshSpec {
   apiVersion: string
   kind: string
@@ -89,6 +140,7 @@ interface FunctionMeshSpec {
   spec: {
     sources?: SourceSpec[]
     functions?: FunctionSpec[]
+    sinks?: SinkSpec[]
   }
 }
 
@@ -316,6 +368,102 @@ function nodeToFunctionSpec(
 }
 
 /**
+ * Converts an Output node to a Pulsar Sink spec
+ */
+function nodeToSinkSpec(
+  node: WorkflowNode,
+  edges: Edge[],
+  nodes: WorkflowNode[],
+  namespace: string = "default",
+): SinkSpec | null {
+  // Skip nodes that don't have required fields
+  if (!node.data.dockerImage || !node.data.className) {
+    console.warn(`Node ${node.id} (${node.data.label}) missing dockerImage or className, skipping...`)
+    return null
+  }
+
+  const inputTopics = getInputTopics(node.id, edges, nodes)
+
+  const spec: SinkSpec = {
+    apiVersion: "compute.functionmesh.io/v1alpha1",
+    kind: "Sink",
+    metadata: {
+      name: generateFunctionName(node),
+      namespace,
+    },
+    spec: {
+      image: node.data.dockerImage,
+      className: node.data.className,
+      replicas: node.data.replicas || 1,
+      pulsar: {
+        pulsarConfig: node.data.pulsarConfig || "pulsar-cluster",
+      },
+    },
+  }
+
+  // Add optional Sink-specific fields
+  if (node.data.tenant) spec.spec.tenant = node.data.tenant
+  if (node.data.clusterName) spec.spec.clusterName = node.data.clusterName
+  if (node.data.showPreciseParallelism !== undefined) {
+    spec.spec.showPreciseParallelism = node.data.showPreciseParallelism
+  }
+  if (node.data.minReplicas !== undefined) spec.spec.minReplicas = node.data.minReplicas
+  if (node.data.maxReplicas !== undefined) spec.spec.maxReplicas = node.data.maxReplicas
+  if (node.data.logTopic) spec.spec.logTopic = node.data.logTopic
+  if (node.data.logTopicAgent) spec.spec.logTopicAgent = node.data.logTopicAgent
+  if (node.data.filebeatImage) spec.spec.filebeatImage = node.data.filebeatImage
+  if (node.data.timeout !== undefined) spec.spec.timeout = node.data.timeout
+  if (node.data.negativeAckRedeliveryDelayMs !== undefined) {
+    spec.spec.negativeAckRedeliveryDelayMs = node.data.negativeAckRedeliveryDelayMs
+  }
+  if (node.data.autoAck !== undefined) spec.spec.autoAck = node.data.autoAck
+  if (node.data.maxMessageRetry !== undefined) spec.spec.maxMessageRetry = node.data.maxMessageRetry
+  if (node.data.processingGuarantee) spec.spec.processingGuarantee = node.data.processingGuarantee
+  if (node.data.retainOrdering !== undefined) spec.spec.retainOrdering = node.data.retainOrdering
+  if (node.data.retainKeyOrdering !== undefined) spec.spec.retainKeyOrdering = node.data.retainKeyOrdering
+  if (node.data.deadLetterTopic) spec.spec.deadLetterTopic = node.data.deadLetterTopic
+  if (node.data.subscriptionName) spec.spec.subscriptionName = node.data.subscriptionName
+  if (node.data.cleanupSubscription !== undefined) {
+    spec.spec.cleanupSubscription = node.data.cleanupSubscription
+  }
+  if (node.data.subscriptionPosition) spec.spec.subscriptionPosition = node.data.subscriptionPosition
+
+  // Parse sinkConfig if provided (expecting YAML string)
+  if (node.data.sinkConfig) {
+    try {
+      spec.spec.sinkConfig = yaml.load(node.data.sinkConfig) as Record<string, any>
+    } catch (error) {
+      console.warn(`Failed to parse sinkConfig for node ${node.id}:`, error)
+    }
+  }
+
+  // Add resource limits if specified
+  if (node.data.cpuRequest || node.data.cpuLimit || node.data.memoryRequest || node.data.memoryLimit) {
+    spec.spec.resources = {}
+    if (node.data.cpuRequest || node.data.memoryRequest) {
+      spec.spec.resources.requests = {}
+      if (node.data.cpuRequest) spec.spec.resources.requests.cpu = node.data.cpuRequest
+      if (node.data.memoryRequest) spec.spec.resources.requests.memory = node.data.memoryRequest
+    }
+    if (node.data.cpuLimit || node.data.memoryLimit) {
+      spec.spec.resources.limits = {}
+      if (node.data.cpuLimit) spec.spec.resources.limits.cpu = node.data.cpuLimit
+      if (node.data.memoryLimit) spec.spec.resources.limits.memory = node.data.memoryLimit
+    }
+  }
+
+  // Add input configuration if there are input topics
+  if (inputTopics.length > 0) {
+    spec.spec.input = {
+      topics: inputTopics,
+      typeClassName: "java.lang.String",
+    }
+  }
+
+  return spec
+}
+
+/**
  * Exports a workflow to a Pulsar Function Mesh YAML file
  */
 export function exportToFunctionMesh(
@@ -325,8 +473,9 @@ export function exportToFunctionMesh(
 ): string {
   const { nodes, edges } = workflow
 
-  // Separate sources and functions based on node type
+  // Separate sources, sinks, and functions based on node type
   const sources: SourceSpec[] = []
+  const sinks: SinkSpec[] = []
   const functions: FunctionSpec[] = []
 
   for (const node of nodes) {
@@ -335,6 +484,12 @@ export function exportToFunctionMesh(
       const sourceSpec = nodeToSourceSpec(node, edges, nodes, namespace)
       if (sourceSpec) {
         sources.push(sourceSpec)
+      }
+    } else if (node.type === "output") {
+      // Output nodes become Sink connectors
+      const sinkSpec = nodeToSinkSpec(node, edges, nodes, namespace)
+      if (sinkSpec) {
+        sinks.push(sinkSpec)
       }
     } else {
       // All other nodes become Functions
@@ -345,17 +500,24 @@ export function exportToFunctionMesh(
     }
   }
 
-  const totalResources = sources.length + functions.length
+  const totalResources = sources.length + sinks.length + functions.length
 
   if (totalResources === 0) {
     throw new Error(
-      "No valid sources or functions to export. Ensure all nodes have dockerImage and className configured.",
+      "No valid sources, sinks, or functions to export. Ensure all nodes have dockerImage and className configured.",
     )
   }
 
   // If there's only one resource, export it directly
   if (totalResources === 1) {
-    const singleResource = sources.length === 1 ? sources[0] : functions[0]
+    let singleResource: SourceSpec | SinkSpec | FunctionSpec
+    if (sources.length === 1) {
+      singleResource = sources[0]
+    } else if (sinks.length === 1) {
+      singleResource = sinks[0]
+    } else {
+      singleResource = functions[0]
+    }
     return yaml.dump(singleResource, {
       indent: 2,
       lineWidth: 120,
@@ -376,6 +538,10 @@ export function exportToFunctionMesh(
 
   if (sources.length > 0) {
     functionMesh.spec.sources = sources
+  }
+
+  if (sinks.length > 0) {
+    functionMesh.spec.sinks = sinks
   }
 
   if (functions.length > 0) {
@@ -405,7 +571,7 @@ export function downloadYamlFile(yamlContent: string, filename: string = "functi
 }
 
 /**
- * Exports individual Source/Function specs for each node (useful for separate deployment)
+ * Exports individual Source/Sink/Function specs for each node (useful for separate deployment)
  */
 export function exportToIndividualFunctions(
   workflow: Workflow,
@@ -415,11 +581,14 @@ export function exportToIndividualFunctions(
   const resourceYamls = new Map<string, string>()
 
   for (const node of nodes) {
-    let spec: SourceSpec | FunctionSpec | null = null
+    let spec: SourceSpec | SinkSpec | FunctionSpec | null = null
 
     // Input nodes become Source connectors
     if (node.type === "input") {
       spec = nodeToSourceSpec(node, edges, nodes, namespace)
+    } else if (node.type === "output") {
+      // Output nodes become Sink connectors
+      spec = nodeToSinkSpec(node, edges, nodes, namespace)
     } else {
       // All other nodes become Functions
       spec = nodeToFunctionSpec(node, edges, nodes, namespace)
