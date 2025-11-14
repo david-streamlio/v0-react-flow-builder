@@ -3,19 +3,19 @@
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
-import { Database, FileOutput, GitBranch, Code, Settings, Mail, Filter, Workflow, Table } from "lucide-react"
+import { Database, FileOutput, GitBranch, Code, Settings, Filter, Workflow, Table } from "lucide-react"
 
 const nodeTypes = [
   {
     type: "input",
     label: "Input",
-    description: "Data input node",
+    description: "Source connector",
     icon: <Database className="h-4 w-4 mr-2" />,
   },
   {
     type: "output",
     label: "Output",
-    description: "Data output node",
+    description: "Sink connector",
     icon: <FileOutput className="h-4 w-4 mr-2" />,
   },
   {
@@ -37,32 +37,22 @@ const nodeTypes = [
     icon: <Code className="h-4 w-4 mr-2" />,
   },
   {
-    type: "email",
-    label: "Email",
-    description: "Send email notification",
-    icon: <Mail className="h-4 w-4 mr-2" />,
-    disabled: true,
-  },
-  {
     type: "filter",
     label: "Filter",
     description: "Filter data",
     icon: <Filter className="h-4 w-4 mr-2" />,
-    disabled: true,
   },
   {
     type: "workflow",
     label: "Sub-workflow",
     description: "Nested workflow",
     icon: <Workflow className="h-4 w-4 mr-2" />,
-    disabled: true,
   },
   {
     type: "table",
-    label: "Table",
+    label: "Lakehouse Table",
     description: "Database table operation",
     icon: <Table className="h-4 w-4 mr-2" />,
-    disabled: true,
   },
 ]
 
