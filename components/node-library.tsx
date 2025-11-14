@@ -41,14 +41,12 @@ const nodeTypes = [
     label: "Filter",
     description: "Filter data",
     icon: <Filter className="h-4 w-4 mr-2" />,
-    disabled: true,
   },
   {
     type: "workflow",
     label: "Sub-workflow",
     description: "Nested workflow",
     icon: <Workflow className="h-4 w-4 mr-2" />,
-    disabled: true,
   },
   {
     type: "table",
