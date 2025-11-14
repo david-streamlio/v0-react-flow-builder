@@ -28,13 +28,31 @@ export default function NodeConfigPanel({ node, updateNodeData, onClose }: NodeC
     updateNodeData(node.id, { [key]: value })
   }
 
+  const handleProducerConfChange = (key: string, value: any) => {
+    setLocalData((prev) => ({
+      ...prev,
+      producerConf: {
+        ...prev.producerConf,
+        [key]: value,
+      },
+    }))
+    updateNodeData(node.id, {
+      producerConf: {
+        ...localData.producerConf,
+        [key]: value,
+      },
+    })
+  }
+
   const renderInputFields = () => {
     switch (node.type) {
       case "input":
         return (
           <>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Source Connector Configuration</h3>
+
             <div className="space-y-2">
-              <Label htmlFor="dataSource">Data Source</Label>
+              <Label htmlFor="dataSource">Data Source Type</Label>
               <Select
                 value={localData.dataSource || "manual"}
                 onValueChange={(value) => handleChange("dataSource", value)}
@@ -52,12 +70,166 @@ export default function NodeConfigPanel({ node, updateNodeData, onClose }: NodeC
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sampleData">Sample Data (JSON)</Label>
+              <Label htmlFor="maxReplicas">Max Replicas (for autoscaling)</Label>
+              <Input
+                id="maxReplicas"
+                type="number"
+                min="1"
+                value={localData.maxReplicas || ""}
+                onChange={(e) => handleChange("maxReplicas", parseInt(e.target.value) || undefined)}
+                placeholder="5"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="typeClassName">Output Type Class Name</Label>
+              <Input
+                id="typeClassName"
+                value={localData.typeClassName || ""}
+                onChange={(e) => handleChange("typeClassName", e.target.value)}
+                placeholder="org.apache.pulsar.common.schema.KeyValue"
+              />
+            </div>
+
+            <div className="space-y-4 border border-gray-200 rounded p-3">
+              <h4 className="text-xs font-semibold text-gray-600">Producer Configuration</h4>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxPendingMessages">Max Pending Messages</Label>
+                <Input
+                  id="maxPendingMessages"
+                  type="number"
+                  min="1"
+                  value={localData.producerConf?.maxPendingMessages || ""}
+                  onChange={(e) => handleProducerConfChange("maxPendingMessages", parseInt(e.target.value) || undefined)}
+                  placeholder="1000"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxPendingMessagesAcrossPartitions">Max Pending Messages Across Partitions</Label>
+                <Input
+                  id="maxPendingMessagesAcrossPartitions"
+                  type="number"
+                  min="1"
+                  value={localData.producerConf?.maxPendingMessagesAcrossPartitions || ""}
+                  onChange={(e) => handleProducerConfChange("maxPendingMessagesAcrossPartitions", parseInt(e.target.value) || undefined)}
+                  placeholder="50000"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 py-2">
+                <Switch
+                  id="useThreadLocalProducers"
+                  checked={localData.producerConf?.useThreadLocalProducers || false}
+                  onCheckedChange={(checked) => handleProducerConfChange("useThreadLocalProducers", checked)}
+                />
+                <Label htmlFor="useThreadLocalProducers">Use Thread Local Producers</Label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sourceConfig">Source Configuration (JSON)</Label>
+              <Textarea
+                id="sourceConfig"
+                value={JSON.stringify(localData.sourceConfig || {}, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value)
+                    handleChange("sourceConfig", parsed)
+                  } catch {
+                    // Allow invalid JSON during editing
+                    handleChange("sourceConfig", e.target.value)
+                  }
+                }}
+                className="h-32 font-mono text-xs"
+                placeholder='{"mongodb.hosts": "rs0/mongo:27017", "mongodb.name": "dbserver1"}'
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jarFile">JAR File Name</Label>
+              <Input
+                id="jarFile"
+                value={localData.jarFile || ""}
+                onChange={(e) => handleChange("jarFile", e.target.value)}
+                placeholder="pulsar-io-debezium-mongodb-2.7.1.nar"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jarLocation">JAR Location</Label>
+              <Input
+                id="jarLocation"
+                value={localData.jarLocation || ""}
+                onChange={(e) => handleChange("jarLocation", e.target.value)}
+                placeholder="connectors/"
+              />
+            </div>
+
+            <div className="space-y-4 border border-gray-200 rounded p-3">
+              <h4 className="text-xs font-semibold text-gray-600">Resource Limits</h4>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cpuRequest">CPU Request</Label>
+                  <Input
+                    id="cpuRequest"
+                    value={localData.cpuRequest || ""}
+                    onChange={(e) => handleChange("cpuRequest", e.target.value)}
+                    placeholder="0.1"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cpuLimit">CPU Limit</Label>
+                  <Input
+                    id="cpuLimit"
+                    value={localData.cpuLimit || ""}
+                    onChange={(e) => handleChange("cpuLimit", e.target.value)}
+                    placeholder="0.2"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="memoryRequest">Memory Request</Label>
+                  <Input
+                    id="memoryRequest"
+                    value={localData.memoryRequest || ""}
+                    onChange={(e) => handleChange("memoryRequest", e.target.value)}
+                    placeholder="1G"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="memoryLimit">Memory Limit</Label>
+                  <Input
+                    id="memoryLimit"
+                    value={localData.memoryLimit || ""}
+                    onChange={(e) => handleChange("memoryLimit", e.target.value)}
+                    placeholder="1.1G"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pulsarConfig">Pulsar ConfigMap Reference</Label>
+              <Input
+                id="pulsarConfig"
+                value={localData.pulsarConfig || ""}
+                onChange={(e) => handleChange("pulsarConfig", e.target.value)}
+                placeholder="test-source"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sampleData">Sample Data (JSON) - for testing</Label>
               <Textarea
                 id="sampleData"
                 value={localData.sampleData || ""}
                 onChange={(e) => handleChange("sampleData", e.target.value)}
-                className="h-32"
+                className="h-24"
                 placeholder='{"key": "value"}'
               />
             </div>

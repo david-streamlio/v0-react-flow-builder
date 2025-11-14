@@ -37,6 +37,48 @@ interface FunctionSpec {
   }
 }
 
+interface SourceSpec {
+  apiVersion: string
+  kind: string
+  metadata: {
+    name: string
+    namespace: string
+  }
+  spec: {
+    image: string
+    className: string
+    replicas?: number
+    maxReplicas?: number
+    output?: {
+      topic: string
+      typeClassName?: string
+      producerConf?: {
+        maxPendingMessages?: number
+        maxPendingMessagesAcrossPartitions?: number
+        useThreadLocalProducers?: boolean
+      }
+    }
+    sourceConfig?: Record<string, string>
+    pulsar?: {
+      pulsarConfig: string
+    }
+    java?: {
+      jar?: string
+      jarLocation?: string
+    }
+    resources?: {
+      requests?: {
+        cpu?: string
+        memory?: string
+      }
+      limits?: {
+        cpu?: string
+        memory?: string
+      }
+    }
+  }
+}
+
 interface FunctionMeshSpec {
   apiVersion: string
   kind: string
@@ -45,6 +87,7 @@ interface FunctionMeshSpec {
     namespace: string
   }
   spec: {
+    sources?: SourceSpec[]
     functions?: FunctionSpec[]
   }
 }
@@ -112,6 +155,113 @@ function getOutputTopic(node: WorkflowNode, edges: Edge[]): string | undefined {
 }
 
 /**
+ * Converts an Input node to a Pulsar Source spec
+ */
+function nodeToSourceSpec(
+  node: WorkflowNode,
+  edges: Edge[],
+  nodes: WorkflowNode[],
+  namespace: string = "default",
+): SourceSpec | null {
+  // Skip nodes that don't have required fields
+  if (!node.data.dockerImage || !node.data.className) {
+    console.warn(`Node ${node.id} (${node.data.label}) missing dockerImage or className, skipping...`)
+    return null
+  }
+
+  const outputTopic = getOutputTopic(node, edges)
+
+  const spec: SourceSpec = {
+    apiVersion: "compute.functionmesh.io/v1alpha1",
+    kind: "Source",
+    metadata: {
+      name: generateFunctionName(node),
+      namespace,
+    },
+    spec: {
+      image: node.data.dockerImage,
+      className: node.data.className,
+      replicas: node.data.replicas || 1,
+    },
+  }
+
+  // Add maxReplicas if specified
+  if (node.data.maxReplicas) {
+    spec.spec.maxReplicas = node.data.maxReplicas
+  }
+
+  // Add output configuration if there's an output topic
+  if (outputTopic) {
+    spec.spec.output = {
+      topic: outputTopic,
+      typeClassName: node.data.typeClassName || "org.apache.pulsar.common.schema.KeyValue",
+    }
+
+    // Add producer configuration if specified
+    if (node.data.producerConf) {
+      spec.spec.output.producerConf = {}
+      if (node.data.producerConf.maxPendingMessages !== undefined) {
+        spec.spec.output.producerConf.maxPendingMessages = node.data.producerConf.maxPendingMessages
+      }
+      if (node.data.producerConf.maxPendingMessagesAcrossPartitions !== undefined) {
+        spec.spec.output.producerConf.maxPendingMessagesAcrossPartitions =
+          node.data.producerConf.maxPendingMessagesAcrossPartitions
+      }
+      if (node.data.producerConf.useThreadLocalProducers !== undefined) {
+        spec.spec.output.producerConf.useThreadLocalProducers = node.data.producerConf.useThreadLocalProducers
+      }
+    }
+  }
+
+  // Add source configuration if specified
+  if (node.data.sourceConfig && Object.keys(node.data.sourceConfig).length > 0) {
+    spec.spec.sourceConfig = node.data.sourceConfig
+  }
+
+  // Add Pulsar configuration
+  if (node.data.pulsarConfig) {
+    spec.spec.pulsar = {
+      pulsarConfig: node.data.pulsarConfig,
+    }
+  } else {
+    spec.spec.pulsar = {
+      pulsarConfig: "pulsar-cluster",
+    }
+  }
+
+  // Add Java configuration if specified
+  if (node.data.jarFile || node.data.jarLocation) {
+    spec.spec.java = {}
+    if (node.data.jarFile) {
+      const jarPath = node.data.jarLocation
+        ? `${node.data.jarLocation}${node.data.jarFile}`
+        : node.data.jarFile
+      spec.spec.java.jar = jarPath
+    }
+    if (node.data.jarLocation) {
+      spec.spec.java.jarLocation = node.data.jarLocation
+    }
+  }
+
+  // Add resource limits if specified
+  if (node.data.cpuRequest || node.data.cpuLimit || node.data.memoryRequest || node.data.memoryLimit) {
+    spec.spec.resources = {}
+    if (node.data.cpuRequest || node.data.memoryRequest) {
+      spec.spec.resources.requests = {}
+      if (node.data.cpuRequest) spec.spec.resources.requests.cpu = node.data.cpuRequest
+      if (node.data.memoryRequest) spec.spec.resources.requests.memory = node.data.memoryRequest
+    }
+    if (node.data.cpuLimit || node.data.memoryLimit) {
+      spec.spec.resources.limits = {}
+      if (node.data.cpuLimit) spec.spec.resources.limits.cpu = node.data.cpuLimit
+      if (node.data.memoryLimit) spec.spec.resources.limits.memory = node.data.memoryLimit
+    }
+  }
+
+  return spec
+}
+
+/**
  * Converts a workflow node to a Pulsar Function spec
  */
 function nodeToFunctionSpec(
@@ -175,32 +325,45 @@ export function exportToFunctionMesh(
 ): string {
   const { nodes, edges } = workflow
 
-  // Convert each node to a Function spec
+  // Separate sources and functions based on node type
+  const sources: SourceSpec[] = []
   const functions: FunctionSpec[] = []
 
   for (const node of nodes) {
-    const functionSpec = nodeToFunctionSpec(node, edges, nodes, namespace)
-    if (functionSpec) {
-      functions.push(functionSpec)
+    // Input nodes become Source connectors
+    if (node.type === "input") {
+      const sourceSpec = nodeToSourceSpec(node, edges, nodes, namespace)
+      if (sourceSpec) {
+        sources.push(sourceSpec)
+      }
+    } else {
+      // All other nodes become Functions
+      const functionSpec = nodeToFunctionSpec(node, edges, nodes, namespace)
+      if (functionSpec) {
+        functions.push(functionSpec)
+      }
     }
   }
 
-  if (functions.length === 0) {
+  const totalResources = sources.length + functions.length
+
+  if (totalResources === 0) {
     throw new Error(
-      "No valid functions to export. Ensure all nodes have dockerImage and className configured.",
+      "No valid sources or functions to export. Ensure all nodes have dockerImage and className configured.",
     )
   }
 
-  // If there's only one function, export as a single Function resource
-  if (functions.length === 1) {
-    return yaml.dump(functions[0], {
+  // If there's only one resource, export it directly
+  if (totalResources === 1) {
+    const singleResource = sources.length === 1 ? sources[0] : functions[0]
+    return yaml.dump(singleResource, {
       indent: 2,
       lineWidth: 120,
       noRefs: true,
     })
   }
 
-  // If there are multiple functions, create a FunctionMesh
+  // If there are multiple resources, create a FunctionMesh
   const functionMesh: FunctionMeshSpec = {
     apiVersion: "compute.functionmesh.io/v1alpha1",
     kind: "FunctionMesh",
@@ -208,9 +371,15 @@ export function exportToFunctionMesh(
       name: meshName,
       namespace,
     },
-    spec: {
-      functions,
-    },
+    spec: {},
+  }
+
+  if (sources.length > 0) {
+    functionMesh.spec.sources = sources
+  }
+
+  if (functions.length > 0) {
+    functionMesh.spec.functions = functions
   }
 
   return yaml.dump(functionMesh, {
@@ -236,26 +405,35 @@ export function downloadYamlFile(yamlContent: string, filename: string = "functi
 }
 
 /**
- * Exports individual Function specs for each node (useful for separate deployment)
+ * Exports individual Source/Function specs for each node (useful for separate deployment)
  */
 export function exportToIndividualFunctions(
   workflow: Workflow,
   namespace: string = "default",
 ): Map<string, string> {
   const { nodes, edges } = workflow
-  const functionYamls = new Map<string, string>()
+  const resourceYamls = new Map<string, string>()
 
   for (const node of nodes) {
-    const functionSpec = nodeToFunctionSpec(node, edges, nodes, namespace)
-    if (functionSpec) {
-      const yamlContent = yaml.dump(functionSpec, {
+    let spec: SourceSpec | FunctionSpec | null = null
+
+    // Input nodes become Source connectors
+    if (node.type === "input") {
+      spec = nodeToSourceSpec(node, edges, nodes, namespace)
+    } else {
+      // All other nodes become Functions
+      spec = nodeToFunctionSpec(node, edges, nodes, namespace)
+    }
+
+    if (spec) {
+      const yamlContent = yaml.dump(spec, {
         indent: 2,
         lineWidth: 120,
         noRefs: true,
       })
-      functionYamls.set(generateFunctionName(node), yamlContent)
+      resourceYamls.set(generateFunctionName(node), yamlContent)
     }
   }
 
-  return functionYamls
+  return resourceYamls
 }
