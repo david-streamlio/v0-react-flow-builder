@@ -21,7 +21,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css"
 import { toast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { Save, Upload, Play } from "lucide-react"
+import { Save, Upload, Play, Download } from "lucide-react"
 import NodeLibrary from "./node-library"
 import NodeConfigPanel from "./node-config-panel"
 import CustomEdge from "./custom-edge"
@@ -32,6 +32,7 @@ import { ConditionalNode } from "./nodes/conditional-node"
 import { CodeNode } from "./nodes/code-node"
 import { generateNodeId, createNode } from "@/lib/workflow-utils"
 import type { WorkflowNode } from "@/lib/types"
+import { exportToFunctionMesh, downloadYamlFile } from "@/lib/function-mesh-export"
 
 const nodeTypes: NodeTypes = {
   input: InputNode,
@@ -135,13 +136,28 @@ export default function WorkflowBuilder() {
       edges,
     }
 
-    const workflowString = JSON.stringify(workflow)
-    localStorage.setItem("workflow", workflowString)
+    try {
+      // Export to Function Mesh YAML
+      const yamlContent = exportToFunctionMesh(workflow, "workflow-function-mesh", "default")
 
-    toast({
-      title: "Workflow saved",
-      description: "Your workflow has been saved successfully",
-    })
+      // Download the YAML file
+      downloadYamlFile(yamlContent, "function-mesh.yaml")
+
+      // Also save to localStorage for quick reload
+      const workflowString = JSON.stringify(workflow)
+      localStorage.setItem("workflow", workflowString)
+
+      toast({
+        title: "Workflow exported",
+        description: "Function Mesh YAML file has been downloaded successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "Failed to export workflow to YAML",
+        variant: "destructive",
+      })
+    }
   }
 
   const loadWorkflow = () => {
@@ -231,15 +247,15 @@ export default function WorkflowBuilder() {
               <MiniMap />
               <Panel position="top-right">
                 <div className="flex gap-2">
-                  <Button onClick={saveWorkflow} size="sm" variant="outline">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
+                  <Button onClick={saveWorkflow} size="sm" variant="default">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export YAML
                   </Button>
                   <Button onClick={loadWorkflow} size="sm" variant="outline">
                     <Upload className="h-4 w-4 mr-2" />
                     Load
                   </Button>
-                  <Button onClick={executeWorkflow} size="sm" variant="default">
+                  <Button onClick={executeWorkflow} size="sm" variant="outline">
                     <Play className="h-4 w-4 mr-2" />
                     Execute
                   </Button>

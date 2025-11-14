@@ -246,6 +246,69 @@ export default function NodeConfigPanel({ node, updateNodeData, onClose }: NodeC
 
         <div className="border-t border-gray-200 my-4"></div>
 
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-700">Pulsar Function Mesh Configuration</h3>
+
+          <div className="space-y-2">
+            <Label htmlFor="dockerImage">Docker Image</Label>
+            <Input
+              id="dockerImage"
+              value={localData.dockerImage || ""}
+              onChange={(e) => handleChange("dockerImage", e.target.value)}
+              placeholder="streamnative/pulsar-functions-java-runner:2.7.1"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="className">Class Name</Label>
+            <Input
+              id="className"
+              value={localData.className || ""}
+              onChange={(e) => handleChange("className", e.target.value)}
+              placeholder="com.example.MyFunction"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="replicas">Replicas</Label>
+            <Input
+              id="replicas"
+              type="number"
+              min="1"
+              value={localData.replicas || 1}
+              onChange={(e) => handleChange("replicas", parseInt(e.target.value) || 1)}
+              placeholder="1"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="inputTopics">Input Topics (comma-separated)</Label>
+            <Input
+              id="inputTopics"
+              value={localData.inputTopics?.join(", ") || ""}
+              onChange={(e) =>
+                handleChange(
+                  "inputTopics",
+                  e.target.value.split(",").map((t) => t.trim()).filter((t) => t),
+                )
+              }
+              placeholder="persistent://public/default/input-topic"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="outputTopic">Output Topic</Label>
+            <Input
+              id="outputTopic"
+              value={localData.outputTopic || ""}
+              onChange={(e) => handleChange("outputTopic", e.target.value)}
+              placeholder="persistent://public/default/output-topic"
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 my-4"></div>
+
         {renderInputFields()}
       </div>
     </div>
