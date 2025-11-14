@@ -5,6 +5,13 @@ export interface NodeData {
   description?: string
   required?: boolean
 
+  // Pulsar Function Mesh properties (common to all nodes)
+  dockerImage?: string
+  className?: string
+  replicas?: number
+  inputTopics?: string[]
+  outputTopic?: string
+
   // Input node properties
   dataSource?: "manual" | "api" | "database" | "file"
   sampleData?: string
