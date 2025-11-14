@@ -33,9 +33,30 @@ export interface NodeData {
   memoryLimit?: string // e.g., "1.1G"
   pulsarConfig?: string // Reference to Pulsar ConfigMap
 
-  // Output node properties
+  // Output node properties (UI-level)
   outputType?: "console" | "api" | "database" | "file"
   outputFormat?: "json" | "csv" | "xml" | "text"
+
+  // Sink CRD properties (for Output nodes when exporting)
+  tenant?: string
+  clusterName?: string
+  showPreciseParallelism?: boolean
+  minReplicas?: number
+  logTopic?: string
+  logTopicAgent?: "runtime" | "sidecar"
+  filebeatImage?: string
+  sinkConfig?: string // YAML format configuration
+  timeout?: number
+  negativeAckRedeliveryDelayMs?: number
+  autoAck?: boolean
+  maxMessageRetry?: number
+  processingGuarantee?: "atleast_once" | "atmost_once" | "effectively_once" | "manual"
+  retainOrdering?: boolean
+  retainKeyOrdering?: boolean
+  deadLetterTopic?: string
+  subscriptionName?: string
+  cleanupSubscription?: boolean
+  subscriptionPosition?: string
 
   // Process node properties
   processType?: "transform" | "filter" | "aggregate" | "sort"
