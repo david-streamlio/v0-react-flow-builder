@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X } from "lucide-react"
+import { X, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,9 +15,10 @@ interface NodeConfigPanelProps {
   node: WorkflowNode
   updateNodeData: (nodeId: string, data: any) => void
   onClose: () => void
+  onDelete: (nodeId: string) => void
 }
 
-export default function NodeConfigPanel({ node, updateNodeData, onClose }: NodeConfigPanelProps) {
+export default function NodeConfigPanel({ node, updateNodeData, onClose, onDelete }: NodeConfigPanelProps) {
   const [localData, setLocalData] = useState({ ...node.data })
 
   const handleChange = (key: string, value: any) => {
@@ -650,9 +651,14 @@ key2: value2'
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Configure {node.data.label}</h2>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="icon" onClick={() => onDelete(node.id)} title="Delete node">
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose} title="Close">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4 flex-1 overflow-y-auto">

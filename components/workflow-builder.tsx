@@ -121,6 +121,24 @@ export default function WorkflowBuilder() {
     [setNodes],
   )
 
+  const onNodesDelete = useCallback(
+    (deleted: Node[]) => {
+      // If the selected node is being deleted, close the config panel
+      if (selectedNode && deleted.some((node) => node.id === selectedNode.id)) {
+        setSelectedNode(null)
+      }
+    },
+    [selectedNode],
+  )
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((nds) => nds.filter((node) => node.id !== nodeId))
+      setSelectedNode(null)
+    },
+    [setNodes],
+  )
+
   const saveWorkflow = () => {
     if (nodes.length === 0) {
       toast({
@@ -230,6 +248,7 @@ export default function WorkflowBuilder() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onNodesDelete={onNodesDelete}
               onInit={setReactFlowInstance}
               onDrop={onDrop}
               onDragOver={onDragOver}
@@ -272,6 +291,7 @@ export default function WorkflowBuilder() {
             node={selectedNode as WorkflowNode}
             updateNodeData={updateNodeData}
             onClose={() => setSelectedNode(null)}
+            onDelete={deleteNode}
           />
         </div>
       )}
