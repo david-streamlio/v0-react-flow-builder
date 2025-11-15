@@ -12,7 +12,28 @@ interface FunctionSpec {
   spec: {
     image: string
     className: string
+    tenant?: string
+    namespace?: string
+    clusterName?: string
     replicas?: number
+    showPreciseParallelism?: boolean
+    minReplicas?: number
+    maxReplicas?: number
+    timeout?: number
+    deadLetterTopic?: string
+    funcConfig?: Record<string, any>
+    logTopic?: string
+    logTopicAgent?: string
+    filebeatImage?: string
+    autoAck?: boolean
+    maxMessageRetry?: number
+    processingGuarantee?: string
+    forwardSourceMessageProperty?: boolean
+    retainOrdering?: boolean
+    retainKeyOrdering?: boolean
+    subscriptionName?: string
+    cleanupSubscription?: boolean
+    subscriptionPosition?: string
     input?: {
       topics: string[]
       typeClassName?: string
@@ -343,9 +364,61 @@ function nodeToFunctionSpec(
       className: node.data.className,
       replicas: node.data.replicas || 1,
       pulsar: {
-        pulsarConfig: "pulsar-cluster",
+        pulsarConfig: node.data.pulsarConfig || "pulsar-cluster",
       },
     },
+  }
+
+  // Add optional Function-specific fields
+  if (node.data.tenant) spec.spec.tenant = node.data.tenant
+  if (node.data.namespace) spec.spec.namespace = node.data.namespace
+  if (node.data.clusterName) spec.spec.clusterName = node.data.clusterName
+  if (node.data.showPreciseParallelism !== undefined) {
+    spec.spec.showPreciseParallelism = node.data.showPreciseParallelism
+  }
+  if (node.data.minReplicas !== undefined) spec.spec.minReplicas = node.data.minReplicas
+  if (node.data.maxReplicas !== undefined) spec.spec.maxReplicas = node.data.maxReplicas
+  if (node.data.timeout !== undefined) spec.spec.timeout = node.data.timeout
+  if (node.data.deadLetterTopic) spec.spec.deadLetterTopic = node.data.deadLetterTopic
+  if (node.data.logTopic) spec.spec.logTopic = node.data.logTopic
+  if (node.data.logTopicAgent) spec.spec.logTopicAgent = node.data.logTopicAgent
+  if (node.data.filebeatImage) spec.spec.filebeatImage = node.data.filebeatImage
+  if (node.data.autoAck !== undefined) spec.spec.autoAck = node.data.autoAck
+  if (node.data.maxMessageRetry !== undefined) spec.spec.maxMessageRetry = node.data.maxMessageRetry
+  if (node.data.processingGuarantee) spec.spec.processingGuarantee = node.data.processingGuarantee
+  if (node.data.forwardSourceMessageProperty !== undefined) {
+    spec.spec.forwardSourceMessageProperty = node.data.forwardSourceMessageProperty
+  }
+  if (node.data.retainOrdering !== undefined) spec.spec.retainOrdering = node.data.retainOrdering
+  if (node.data.retainKeyOrdering !== undefined) spec.spec.retainKeyOrdering = node.data.retainKeyOrdering
+  if (node.data.subscriptionName) spec.spec.subscriptionName = node.data.subscriptionName
+  if (node.data.cleanupSubscription !== undefined) {
+    spec.spec.cleanupSubscription = node.data.cleanupSubscription
+  }
+  if (node.data.subscriptionPosition) spec.spec.subscriptionPosition = node.data.subscriptionPosition
+
+  // Parse funcConfig if provided (expecting YAML string)
+  if (node.data.funcConfig) {
+    try {
+      spec.spec.funcConfig = yaml.load(node.data.funcConfig) as Record<string, any>
+    } catch (error) {
+      console.warn(`Failed to parse funcConfig for node ${node.id}:`, error)
+    }
+  }
+
+  // Add resource limits if specified
+  if (node.data.cpuRequest || node.data.cpuLimit || node.data.memoryRequest || node.data.memoryLimit) {
+    spec.spec.resources = {}
+    if (node.data.cpuRequest || node.data.memoryRequest) {
+      spec.spec.resources.requests = {}
+      if (node.data.cpuRequest) spec.spec.resources.requests.cpu = node.data.cpuRequest
+      if (node.data.memoryRequest) spec.spec.resources.requests.memory = node.data.memoryRequest
+    }
+    if (node.data.cpuLimit || node.data.memoryLimit) {
+      spec.spec.resources.limits = {}
+      if (node.data.cpuLimit) spec.spec.resources.limits.cpu = node.data.cpuLimit
+      if (node.data.memoryLimit) spec.spec.resources.limits.memory = node.data.memoryLimit
+    }
   }
 
   // Add input configuration if there are input topics

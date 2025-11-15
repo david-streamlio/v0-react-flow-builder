@@ -280,6 +280,8 @@ export default function NodeConfigPanel({ node, updateNodeData, onClose }: NodeC
       case "process":
         return (
           <>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Function Configuration</h3>
+
             <div className="space-y-2">
               <Label htmlFor="processType">Process Type</Label>
               <Select
@@ -299,7 +301,269 @@ export default function NodeConfigPanel({ node, updateNodeData, onClose }: NodeC
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="processConfig">Process Configuration (JSON)</Label>
+              <Label htmlFor="tenant">Tenant</Label>
+              <Input
+                id="tenant"
+                value={localData.tenant || ""}
+                onChange={(e) => handleChange("tenant", e.target.value)}
+                placeholder="public"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="namespace">Namespace</Label>
+              <Input
+                id="namespace"
+                value={localData.namespace || ""}
+                onChange={(e) => handleChange("namespace", e.target.value)}
+                placeholder="default"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="clusterName">Cluster Name</Label>
+              <Input
+                id="clusterName"
+                value={localData.clusterName || ""}
+                onChange={(e) => handleChange("clusterName", e.target.value)}
+                placeholder="pulsar-cluster"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="showPreciseParallelism"
+                checked={localData.showPreciseParallelism || false}
+                onCheckedChange={(checked) => handleChange("showPreciseParallelism", checked)}
+              />
+              <Label htmlFor="showPreciseParallelism">Show Precise Parallelism</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="minReplicas">Min Replicas (for autoscaling)</Label>
+              <Input
+                id="minReplicas"
+                type="number"
+                min="0"
+                value={localData.minReplicas || ""}
+                onChange={(e) => handleChange("minReplicas", parseInt(e.target.value) || undefined)}
+                placeholder="1"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="timeout">Timeout (milliseconds)</Label>
+              <Input
+                id="timeout"
+                type="number"
+                min="0"
+                value={localData.timeout || ""}
+                onChange={(e) => handleChange("timeout", parseInt(e.target.value) || undefined)}
+                placeholder="10000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="deadLetterTopic">Dead Letter Topic</Label>
+              <Input
+                id="deadLetterTopic"
+                value={localData.deadLetterTopic || ""}
+                onChange={(e) => handleChange("deadLetterTopic", e.target.value)}
+                placeholder="persistent://public/default/dlq-topic"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="logTopic">Log Topic</Label>
+              <Input
+                id="logTopic"
+                value={localData.logTopic || ""}
+                onChange={(e) => handleChange("logTopic", e.target.value)}
+                placeholder="persistent://public/default/log-topic"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="logTopicAgent">Log Topic Agent</Label>
+              <Select
+                value={localData.logTopicAgent || "runtime"}
+                onValueChange={(value) => handleChange("logTopicAgent", value)}
+              >
+                <SelectTrigger id="logTopicAgent">
+                  <SelectValue placeholder="Select log agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="runtime">Runtime</SelectItem>
+                  <SelectItem value="sidecar">Sidecar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="filebeatImage">Filebeat Image</Label>
+              <Input
+                id="filebeatImage"
+                value={localData.filebeatImage || ""}
+                onChange={(e) => handleChange("filebeatImage", e.target.value)}
+                placeholder="elastic/filebeat:7.10.0"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="autoAck"
+                checked={localData.autoAck || false}
+                onCheckedChange={(checked) => handleChange("autoAck", checked)}
+              />
+              <Label htmlFor="autoAck">Auto Acknowledge Messages</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="maxMessageRetry">Max Message Retry</Label>
+              <Input
+                id="maxMessageRetry"
+                type="number"
+                min="0"
+                value={localData.maxMessageRetry || ""}
+                onChange={(e) => handleChange("maxMessageRetry", parseInt(e.target.value) || undefined)}
+                placeholder="3"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="processingGuarantee">Processing Guarantee</Label>
+              <Select
+                value={localData.processingGuarantee || "atleast_once"}
+                onValueChange={(value) => handleChange("processingGuarantee", value)}
+              >
+                <SelectTrigger id="processingGuarantee">
+                  <SelectValue placeholder="Select guarantee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="atleast_once">At Least Once</SelectItem>
+                  <SelectItem value="atmost_once">At Most Once</SelectItem>
+                  <SelectItem value="effectively_once">Effectively Once</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="forwardSourceMessageProperty"
+                checked={localData.forwardSourceMessageProperty || false}
+                onCheckedChange={(checked) => handleChange("forwardSourceMessageProperty", checked)}
+              />
+              <Label htmlFor="forwardSourceMessageProperty">Forward Source Message Property</Label>
+            </div>
+
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="retainOrdering"
+                checked={localData.retainOrdering || false}
+                onCheckedChange={(checked) => handleChange("retainOrdering", checked)}
+              />
+              <Label htmlFor="retainOrdering">Retain Ordering</Label>
+            </div>
+
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="retainKeyOrdering"
+                checked={localData.retainKeyOrdering || false}
+                onCheckedChange={(checked) => handleChange("retainKeyOrdering", checked)}
+              />
+              <Label htmlFor="retainKeyOrdering">Retain Key Ordering</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subscriptionName">Subscription Name</Label>
+              <Input
+                id="subscriptionName"
+                value={localData.subscriptionName || ""}
+                onChange={(e) => handleChange("subscriptionName", e.target.value)}
+                placeholder="my-subscription"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="cleanupSubscription"
+                checked={localData.cleanupSubscription || false}
+                onCheckedChange={(checked) => handleChange("cleanupSubscription", checked)}
+              />
+              <Label htmlFor="cleanupSubscription">Cleanup Subscription</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subscriptionPosition">Subscription Position</Label>
+              <Input
+                id="subscriptionPosition"
+                value={localData.subscriptionPosition || ""}
+                onChange={(e) => handleChange("subscriptionPosition", e.target.value)}
+                placeholder="Latest"
+              />
+            </div>
+
+            <div className="space-y-4 border border-gray-200 rounded p-3">
+              <h4 className="text-xs font-semibold text-gray-600">Resource Limits</h4>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cpuRequest">CPU Request</Label>
+                  <Input
+                    id="cpuRequest"
+                    value={localData.cpuRequest || ""}
+                    onChange={(e) => handleChange("cpuRequest", e.target.value)}
+                    placeholder="0.1"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cpuLimit">CPU Limit</Label>
+                  <Input
+                    id="cpuLimit"
+                    value={localData.cpuLimit || ""}
+                    onChange={(e) => handleChange("cpuLimit", e.target.value)}
+                    placeholder="0.2"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="memoryRequest">Memory Request</Label>
+                  <Input
+                    id="memoryRequest"
+                    value={localData.memoryRequest || ""}
+                    onChange={(e) => handleChange("memoryRequest", e.target.value)}
+                    placeholder="1G"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="memoryLimit">Memory Limit</Label>
+                  <Input
+                    id="memoryLimit"
+                    value={localData.memoryLimit || ""}
+                    onChange={(e) => handleChange("memoryLimit", e.target.value)}
+                    placeholder="1.1G"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="funcConfig">Function Configuration (YAML)</Label>
+              <Textarea
+                id="funcConfig"
+                value={localData.funcConfig || ""}
+                onChange={(e) => handleChange("funcConfig", e.target.value)}
+                className="h-32 font-mono text-xs"
+                placeholder='key1: value1
+key2: value2'
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="processConfig">Process Configuration (JSON) - Legacy</Label>
               <Textarea
                 id="processConfig"
                 value={localData.processConfig || ""}

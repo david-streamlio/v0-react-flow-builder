@@ -58,9 +58,17 @@ export interface NodeData {
   cleanupSubscription?: boolean
   subscriptionPosition?: string
 
-  // Process node properties
+  // Process node properties (UI-level)
   processType?: "transform" | "filter" | "aggregate" | "sort"
   processConfig?: string
+
+  // Function CRD properties (for Process nodes when exporting)
+  // Note: tenant, showPreciseParallelism, minReplicas, timeout, deadLetterTopic, logTopic, logTopicAgent,
+  // filebeatImage, autoAck, maxMessageRetry, processingGuarantee, retainOrdering, retainKeyOrdering,
+  // subscriptionName, cleanupSubscription, subscriptionPosition are shared with Sink CRD above
+  namespace?: string
+  funcConfig?: string // YAML format configuration
+  forwardSourceMessageProperty?: boolean
 
   // Conditional node properties
   condition?: string
